@@ -1,0 +1,82 @@
+import { 
+    Function, 
+    Integer
+    } from "@foundry/functions-api"; 
+import { 
+    ObjectSet, 
+    OpdefKeys
+    } from "@foundry/ontology-api";
+export class onThisDayFunctions {
+        @Function()
+        public async opdefsInRange (
+            opDefs: ObjectSet<OpdefKeys>, 
+            startDate: Integer, 
+            endDate: Integer 
+        ): Promise<Array<{date: string, totalOpDefs: Integer}>> 
+// Helper function to convert integer date to Date object
+        {
+            const convertToDate = (dateInt: Integer): Date => { 
+            const year = Math.floor(dateInt / 10000);
+            const month = Math.floor((dateInt % 10000) / 100) - 1; 
+            const day = dateInt % 100; 
+            const dateObj = new Date(year, month, day); 
+            
+            if (isNaN(dateObj.getTime()))
+                { 
+                    throw new 
+                    Error("Invalid date."); 
+                } 
+                return dateObj; 
+                }; 
+
+// Initialize start and end dates 
+            const start = convertToDate(startDate); 
+            const end = convertToDate(endDate); 
+
+// Check for Object initialisation
+            if (!opDefs || !opDefs.all)
+                {
+                    throw new
+                    Error("Invalid ObjectSet: entity types not intialised.");
+                }            
+
+// Array to store results 
+            let results: Array<{date: string, totalOpDefs: Integer}> = []; 
+
+// Iterate over each day in the date range 
+            for (let currentDate = new Date(start); currentDate <= end; currentDate.setDate(currentDate.getDate() + 1)) { 
+            let totalOpDefs: Integer = 0; 
+            const onThisDayDate = new Date(currentDate); 
+
+// Iterate over OpDef array 
+            const opDefsArray = opDefs.all(); opDefsArray.forEach(opDef => { 
+            const raisedOn = opDef.raisedOn ? new Date(opDef.raisedOn as any) : null; 
+            const rectificationDate = opDef.rectificationDate ? new Date(opDef.rectificationDate as any) : null; 
+            const cancellationDate = opDef.cancellationDate ? new Date(opDef.cancellationDate as any) : null; 
+
+//----------------------count number of OpDefs between Date Raised and Date Rect-----------------------------------------------------------------------//
+            if (raisedOn && raisedOn <= onThisDayDate) {
+                if (rectificationDate && rectificationDate >= onThisDayDate) {
+                totalOpDefs++;
+                }
+            }
+//----------------------count number of OpDefs between Date Raised and Date Cancelled------------------------------------------------------------------//
+            if (raisedOn && raisedOn <= onThisDayDate) {
+                if (cancellationDate && cancellationDate >= onThisDayDate) {
+                totalOpDefs++;    
+                }
+            }
+//----------------------count number of OpDefs between Date Raised and still Extant---------------------------------------------------------------------//
+            if (raisedOn && raisedOn <= onThisDayDate) {
+                if (opDef.extantStatus === "EXTANT"){
+                totalOpDefs++;
+                }
+            }
+        }); 
+
+// Store the result for the current date 
+        results.push({ date: onThisDayDate.toISOString().split('T')[0], totalOpDefs: totalOpDefs as unknown as Integer });
+        }
+        return results;
+    }
+}
